@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  # 1. Banco de Dados para o GLPI
+  glpi-db:
+    image: mariadb:10.11
+    container_name: glpi-db
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - glpi_db_data:/var/lib/mysql
+    networks:
+      - default
+    environment:
+      TZ: America/Sao_Paulo
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 2. GLPI (Gestão de Serviços)
+  glpi:
+    image: glpi/glpi:latest
+    container_name: glpi
+    restart: always
+    ports:
+      - "18080:80" # Acesso ao GLPI
+    depends_on:
+      - glpi-db
+    environment:
+      GLPI_DB_HOST: glpi-db
+      TZ: America/Sao_Paulo
+    env_file:
+      - .env
+    volumes:
+      - glpi_files:/var/www/html/files
+    networks:
+      - default
+      - itsm_shared_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  glpi_db_data:
+  glpi_files:
+
+networks:
+  default:
+    driver: bridge
+  itsm_shared_net:
+    external: true

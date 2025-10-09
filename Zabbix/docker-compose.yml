@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  # 1. Banco de Dados para o Zabbix
+  zabbix-db:
+    image: postgres:15-alpine
+    container_name: zabbix-db
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - zabbix_db_data:/var/lib/postgresql/data
+    networks:
+      - default
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 2. Servidor Zabbix
+  zabbix-server:
+    image: zabbix/zabbix-server-pgsql:latest
+    container_name: zabbix-server
+    restart: always
+    ports:
+      - "11051:10051"
+    depends_on:
+      - zabbix-db
+    environment:
+      DB_SERVER_HOST: zabbix-db # Comunicação interna
+      TZ: America/Sao_Paulo
+    env_file:
+      - .env
+    networks:
+      - default
+      - itsm_shared_net
+    healthcheck:
+      test: ["CMD", "zabbix_server", "-V"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # 3. Interface Web do Zabbix
+  zabbix-web:
+    image: zabbix/zabbix-web-nginx-pgsql:latest
+    container_name: zabbix-web
+    restart: always
+    ports:
+      - "18081:8080" # Acesso ao Zabbix Frontend
+    depends_on:
+      - zabbix-server
+    environment:
+      ZBX_SERVER_HOST: zabbix-server
+      DB_SERVER_HOST: zabbix-db
+      TZ: America/Sao_Paulo
+    env_file:
+      - .env
+    networks:
+      - default
+      - itsm_shared_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  zabbix_db_data:
+
+networks:
+  # Rede interna (Docker Compose cria automaticamente)
+  default:
+    driver: bridge
+  # Rede externa para comunicação com GLPI e Grafana
+  itsm_shared_net:
+    external: true
+
+# Boas práticas:
+# - Use variáveis de timezone para evitar problemas de horário.
+  # - Healthchecks garantem que os serviços só iniciam quando prontos.
+  # - Utilize arquivos .env para variáveis sensíveis.
