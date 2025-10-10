@@ -1,0 +1,17 @@
+# Ignore environment files with secrets
+*.env
+*/.env
+**/.env
+
+# Ignore backups and SQL dumps
+backups/
+*.sql
+
+# OS / editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local compose overrides
+docker-compose.override.yml
