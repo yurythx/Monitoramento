@@ -1,154 +1,17 @@
-# Compose versão declarada é opcional nas versões atuais; removida.
+# Docker Compose Principal - Monitoramento GLPI+Zabbix+Grafana
+# Estrutura modular: cada serviço tem seu próprio arquivo na pasta correspondente
+# Para iniciar todos: docker-compose up -d
+# Para iniciar serviço específico: docker-compose -f GLPI/glpi.yml up -d
 
-# =========================================================
-# DOCKER COMPOSE PRINCIPAL - MONITORAMENTO GLPI-ZABBIX-GRAFANA
-# =========================================================
-# Este arquivo orquestra todos os serviços (GLPI, Zabbix e Grafana)
-# com redes e volumes compartilhados. Execute na raiz:
-#   docker compose up -d
-# =========================================================
+include:
+  # Serviços de monitoramento
+  - GLPI/glpi.yml
+  - Zabbix/zabbix.yml
+  - Grafana/grafana.yml
+  # Sistema de backup automatizado
+  - backup/backup.yml
 
-services:
-  # -----------------------------
-  # GLPI
-  # -----------------------------
-  glpi-db:
-    image: mariadb:10.11
-    container_name: glpi-db
-    restart: always
-    env_file:
-      - ./GLPI/.env
-    volumes:
-      - glpi_db_data:/var/lib/mysql
-    environment:
-      TZ: America/Sao_Paulo
-    networks:
-      - itsm_shared_net
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  glpi:
-    image: glpi/glpi:latest
-    container_name: glpi
-    restart: always
-    ports:
-      - "18080:80"
-    depends_on:
-      glpi-db:
-        condition: service_healthy
-    environment:
-      GLPI_DB_HOST: glpi-db
-      TZ: America/Sao_Paulo
-    env_file:
-      - ./GLPI/.env
-    volumes:
-      - glpi_files:/var/www/html/files
-    networks:
-      - itsm_shared_net
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-
-  # -----------------------------
-  # Zabbix
-  # -----------------------------
-  zabbix-db:
-    image: postgres:15-alpine
-    container_name: zabbix-db
-    restart: always
-    env_file:
-      - ./Zabbix/.env
-    volumes:
-      - zabbix_db_data:/var/lib/postgresql/data
-    networks:
-      - itsm_shared_net
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  zabbix-server:
-    image: zabbix/zabbix-server-pgsql:latest
-    container_name: zabbix-server
-    restart: always
-    ports:
-      - "11051:10051"
-    depends_on:
-      zabbix-db:
-        condition: service_healthy
-    environment:
-      DB_SERVER_HOST: zabbix-db
-      TZ: America/Sao_Paulo
-    env_file:
-      - ./Zabbix/.env
-    networks:
-      - itsm_shared_net
-    healthcheck:
-      test: ["CMD", "zabbix_server", "-V"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-
-  zabbix-web:
-    image: zabbix/zabbix-web-nginx-pgsql:latest
-    container_name: zabbix-web
-    restart: always
-    ports:
-      - "18081:8080"
-    depends_on:
-      zabbix-server:
-        condition: service_started
-    environment:
-      ZBX_SERVER_HOST: zabbix-server
-      DB_SERVER_HOST: zabbix-db
-      TZ: America/Sao_Paulo
-    env_file:
-      - ./Zabbix/.env
-    networks:
-      - itsm_shared_net
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-
-  # -----------------------------
-  # Grafana
-  # -----------------------------
-  grafana:
-    image: grafana/grafana:latest
-    container_name: grafana
-    restart: always
-    ports:
-      - "13000:3000"
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./Grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
-    networks:
-      - itsm_shared_net
-    env_file:
-      - ./Grafana/.env
-    environment:
-      TZ: America/Sao_Paulo
-      GF_INSTALL_PLUGINS: alexanderzobnin-zabbix-app
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-
-volumes:
-  glpi_db_data:
-  glpi_files:
-  zabbix_db_data:
-  grafana_data:
-
+# Rede compartilhada entre todos os serviços
 networks:
   itsm_shared_net:
     driver: bridge
