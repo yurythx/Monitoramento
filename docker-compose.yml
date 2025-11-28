@@ -34,3 +34,9 @@ services:
 networks:
   itsm_shared_net:
     external: true
+
+volumes:
+  glpi_db_data:
+  glpi_files:
+  zabbix_db_data:
+  grafana_data:
