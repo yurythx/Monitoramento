@@ -3,28 +3,40 @@ services:
     extends:
       file: GLPI/glpi.yml
       service: glpi-db
+    env_file:
+      - GLPI/.env
   glpi:
     extends:
       file: GLPI/glpi.yml
       service: glpi
+    env_file:
+      - GLPI/.env
 
   zabbix-db:
     extends:
       file: Zabbix/zabbix.yml
       service: zabbix-db
+    env_file:
+      - Zabbix/.env
   zabbix-server:
     extends:
       file: Zabbix/zabbix.yml
       service: zabbix-server
+    env_file:
+      - Zabbix/.env
   zabbix-web:
     extends:
       file: Zabbix/zabbix.yml
       service: zabbix-web
+    env_file:
+      - Zabbix/.env
 
   grafana:
     extends:
       file: Grafana/grafana.yml
       service: grafana
+    env_file:
+      - Grafana/.env
 
   backup-monitoramento:
     extends:
