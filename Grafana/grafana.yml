@@ -5,7 +5,7 @@ services:
     container_name: grafana
     restart: always
     ports:
-      - "13000:3000" # Acesso ao Grafana
+      - "127.0.0.1:13000:3000" # Acesso ao Grafana (bind local)
     volumes:
       - grafana_data:/var/lib/grafana
       - ./provisioning/datasources:/etc/grafana/provisioning/datasources
@@ -24,3 +24,7 @@ services:
 
 volumes:
   grafana_data:
+
+networks:
+  itsm_shared_net:
+    external: true

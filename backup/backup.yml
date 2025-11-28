@@ -34,8 +34,7 @@ services:
       # Diretório de destino dos backups
       - /mnt/backup/monitoramento:/backup/destination
       
-      # Script de backup
-      - ./backup_script.sh:/backup_script.sh:ro
+      # Script opcional (removido: arquivo ausente)
     
     # Comando de inicialização
     command: >
@@ -143,3 +142,7 @@ volumes:
   glpi_files:
   zabbix_db_data:
   grafana_data:
+
+networks:
+  itsm_shared_net:
+    external: true

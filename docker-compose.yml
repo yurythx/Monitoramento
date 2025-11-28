@@ -1,17 +1,36 @@
-# Docker Compose Principal - Monitoramento GLPI+Zabbix+Grafana
-# Estrutura modular: cada serviço tem seu próprio arquivo na pasta correspondente
-# Para iniciar todos: docker-compose up -d
-# Para iniciar serviço específico: docker-compose -f GLPI/glpi.yml up -d
+services:
+  glpi-db:
+    extends:
+      file: GLPI/glpi.yml
+      service: glpi-db
+  glpi:
+    extends:
+      file: GLPI/glpi.yml
+      service: glpi
 
-include:
-  # Serviços de monitoramento
-  - GLPI/glpi.yml
-  - Zabbix/zabbix.yml
-  - Grafana/grafana.yml
-  # Sistema de backup automatizado
-  - backup/backup.yml
+  zabbix-db:
+    extends:
+      file: Zabbix/zabbix.yml
+      service: zabbix-db
+  zabbix-server:
+    extends:
+      file: Zabbix/zabbix.yml
+      service: zabbix-server
+  zabbix-web:
+    extends:
+      file: Zabbix/zabbix.yml
+      service: zabbix-web
 
-# Rede compartilhada entre todos os serviços
+  grafana:
+    extends:
+      file: Grafana/grafana.yml
+      service: grafana
+
+  backup-monitoramento:
+    extends:
+      file: backup/backup.yml
+      service: backup-monitoramento
+
 networks:
   itsm_shared_net:
-    driver: bridge
+    external: true

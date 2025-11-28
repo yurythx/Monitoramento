@@ -10,7 +10,7 @@ Esta stack oferece uma solução completa de monitoramento e gestão de TI, inte
 - **📈 Grafana**: Ferramenta de visualização e dashboards para análise de dados
 
 ### Arquitetura
-- **Rede**: Todos os serviços compartilham a rede local `monitoramento_default`
+- **Rede**: Todos os serviços compartilham a rede `itsm_shared_net`
 - **Volumes**: Dados persistidos em volumes locais Docker
 - **Bancos de Dados**: 
   - GLPI utiliza MariaDB 10.11
@@ -127,11 +127,11 @@ docker compose pull && docker compose up -d
 ```
 
 ### Estrutura de Volumes
-Os dados são persistidos em volumes locais Docker:
-- `monitoramento_glpi_db_data` - Dados do MariaDB (GLPI)
-- `monitoramento_glpi_files` - Arquivos do GLPI
-- `monitoramento_zabbix_db_data` - Dados do PostgreSQL (Zabbix)
-- `monitoramento_grafana_data` - Dados do Grafana
+Os dados são persistidos em volumes locais Docker (nomes conforme projeto Compose):
+- `glpi_db_data` - Dados do MariaDB (GLPI)
+- `glpi_files` - Arquivos do GLPI
+- `zabbix_db_data` - Dados do PostgreSQL (Zabbix)
+- `grafana_data` - Dados do Grafana
 
 ## 💾 Backup e Restauração
 
@@ -166,7 +166,7 @@ docker exec -i zabbix-db psql -U zabbix_user -d zabbix_db < backup_zabbix_YYYYMM
    - **Password**: Senha do usuário Zabbix
 
 ### Rede Interna
-Todos os serviços se comunicam através da rede `monitoramento_default`:
+Todos os serviços se comunicam através da rede `itsm_shared_net`:
 - `glpi` - Container do GLPI
 - `glpi-db` - MariaDB do GLPI
 - `zabbix-web` - Interface web do Zabbix
@@ -267,8 +267,7 @@ Monitoramento/
 │   ├── grafana.yml         # Compose específico do Grafana
 │   └── provisioning/       # Configurações automáticas
 └── backup/
-    ├── backup.yml          # Serviço de backup automático
-    └── backup_script.sh    # Script de backup
+    └── backup.yml          # Serviço de backup automático
 ```
 
 ---

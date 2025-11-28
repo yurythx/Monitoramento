@@ -26,7 +26,7 @@ services:
     container_name: zabbix-server
     restart: always
     ports:
-      - "11051:10051"
+      - "127.0.0.1:11051:10051" # bind local
     depends_on:
       zabbix-db:
         condition: service_healthy
@@ -54,7 +54,7 @@ services:
     container_name: zabbix-web
     restart: always
     ports:
-      - "18081:8080" # Acesso ao Zabbix Frontend
+      - "127.0.0.1:18081:8080" # Acesso ao Zabbix Frontend (bind local)
     depends_on:
       zabbix-server:
         condition: service_healthy
@@ -80,3 +80,7 @@ services:
 
 volumes:
   zabbix_db_data:
+
+networks:
+  itsm_shared_net:
+    external: true

@@ -1,7 +1,7 @@
-# Deploy Stack Monitoramento - Ubuntu 24.04 + aaPanel
+# Deploy Stack Monitoramento - Ubuntu 24.04 (Cloudflare Tunnel)
 
 ## Visão Geral
-Esta documentação detalha o processo de implantação da Stack de Monitoramento (Zabbix, GLPI, Grafana) em Ubuntu 24.04 com aaPanel.
+Esta documentação detalha o processo de implantação da Stack de Monitoramento (Zabbix, GLPI, Grafana) em Ubuntu 24.04 com Cloudflare Tunnel.
 
 ## Serviços Incluídos
 - **Zabbix Server**: Monitoramento de infraestrutura
@@ -33,14 +33,8 @@ sudo apt install docker-compose-plugin
 
 ### Configurações do Ubuntu
 ```bash
-# Configurar firewall
+# Configurar firewall (Tunnel não requer portas públicas)
 sudo ufw allow 22/tcp      # SSH
-sudo ufw allow 80/tcp      # HTTP
-sudo ufw allow 443/tcp     # HTTPS
-sudo ufw allow 8080/tcp    # Zabbix Web
-sudo ufw allow 3000/tcp    # Grafana
-sudo ufw allow 8081/tcp    # GLPI
-sudo ufw allow 9000/tcp    # Portainer
 sudo ufw --force enable
 
 # Criar diretórios para volumes
@@ -49,28 +43,22 @@ sudo mkdir -p /mnt/config
 sudo chown -R 1000:1000 /mnt/config
 ```
 
-## Configuração do aaPanel
+## Exposição com Cloudflare Tunnel
 
-### 1. Configurar Domínios
-No painel do aaPanel, adicione os seguintes domínios:
-- `zabbix.seudominio.com` → Proxy reverso para `192.168.0.121:8080`
-- `glpi.seudominio.com` → Proxy reverso para `192.168.0.121:8081`
-- `grafana.seudominio.com` → Proxy reverso para `192.168.0.121:3000`
-- `portainer.seudominio.com` → Proxy reverso para `192.168.0.121:9000`
-
-### 2. Configurar SSL
-Para cada domínio, configure certificados SSL (Let's Encrypt recomendado).
-
-### 3. Configurar Proxy Reverso
-```nginx
-# Exemplo para Zabbix
-location / {
-    proxy_pass http://192.168.0.121:8080;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-}
+### Ingress de exemplo
+```yaml
+tunnel: <SEU_TUNNEL_ID_OU_NOME>
+credentials-file: /etc/cloudflared/<SEU_TUNNEL_ID>.json
+ingress:
+  - hostname: glpi.seudominio.com
+    service: http://127.0.0.1:18080
+  - hostname: zabbix.seudominio.com
+    service: http://127.0.0.1:18081
+  - hostname: grafana.seudominio.com
+    service: http://127.0.0.1:13000
+  - hostname: portainer.seudominio.com
+    service: http://127.0.0.1:9000
+  - service: http_status:404
 ```
 
 ## Preparação dos Arquivos
@@ -129,8 +117,8 @@ docker network create itsm_shared_net
 ### 2. Iniciar Infraestrutura Base
 ```bash
 # Iniciar bancos de dados primeiro
-docker-compose -f zabbix/zabbix.yml up -d postgres
-docker-compose -f glpi/glpi.yml up -d mysql
+docker compose -f Zabbix/zabbix.yml up -d zabbix-db
+docker compose -f GLPI/glpi.yml up -d glpi-db
 
 # Aguardar inicialização (30-60 segundos)
 sleep 60
@@ -139,28 +127,25 @@ sleep 60
 ### 3. Iniciar Serviços Principais
 ```bash
 # Iniciar Zabbix Server
-docker-compose -f zabbix/zabbix.yml up -d zabbix-server
+docker compose -f Zabbix/zabbix.yml up -d zabbix-server
 
 # Aguardar inicialização do Zabbix Server
 sleep 30
 
 # Iniciar Zabbix Web
-docker-compose -f zabbix/zabbix.yml up -d zabbix-web
+docker compose -f Zabbix/zabbix.yml up -d zabbix-web
 
 # Iniciar GLPI
-docker-compose -f glpi/glpi.yml up -d
+docker compose -f GLPI/glpi.yml up -d glpi
 
 # Iniciar Grafana
-docker-compose -f grafana/grafana.yml up -d
+docker compose -f Grafana/grafana.yml up -d grafana
 ```
 
 ### 4. Iniciar Serviços Auxiliares
 ```bash
-# Iniciar Portainer
-docker-compose -f portainer/portainer.yml up -d
-
 # Iniciar backup (opcional)
-docker-compose -f backup/backup.yml up -d
+docker compose -f backup/backup.yml up -d
 ```
 
 ## Verificação
@@ -168,22 +153,22 @@ docker-compose -f backup/backup.yml up -d
 ### 1. Status dos Containers
 ```bash
 docker ps
-docker-compose logs -f
+docker compose logs -f
 ```
 
 ### 2. Testes de Conectividade
 ```bash
 # Testar Zabbix Web
-curl -I http://192.168.0.121:8080
+curl -I http://127.0.0.1:18081
 
 # Testar GLPI
-curl -I http://192.168.0.121:8081
+curl -I http://127.0.0.1:18080
 
 # Testar Grafana
-curl -I http://192.168.0.121:3000
+curl -I http://127.0.0.1:13000
 
-# Testar Portainer
-curl -I http://192.168.0.121:9000
+# Testar Portainer (se instalado)
+curl -I http://127.0.0.1:9000
 ```
 
 ## Configuração Inicial dos Serviços
@@ -215,17 +200,17 @@ curl -I http://192.168.0.121:9000
 ### Comandos Úteis
 ```bash
 # Ver logs
-docker-compose logs -f [serviço]
+docker compose logs -f [serviço]
 
 # Reiniciar serviços
-docker-compose restart [serviço]
+docker compose restart [serviço]
 
 # Backup de dados
-docker-compose -f backup/backup.yml up
+docker compose -f backup/backup.yml up
 
 # Atualizar imagens
-docker-compose pull
-docker-compose up -d
+docker compose pull
+docker compose up -d
 ```
 
 ### Backup Automático
@@ -239,7 +224,7 @@ O serviço de backup está configurado para:
 ### Medidas Implementadas
 - Senhas fortes em todos os serviços
 - Comunicação interna via rede Docker
-- SSL/TLS via aaPanel
+- SSL/TLS via Cloudflare (Tunnel)
 - Firewall configurado
 - Volumes com permissões adequadas
 
@@ -254,8 +239,8 @@ O serviço de backup está configurado para:
 ### Problemas Comuns
 1. **Containers não iniciam**: Verificar logs e dependências
 2. **Erro de conexão DB**: Verificar credenciais e rede
-3. **Proxy reverso não funciona**: Verificar configuração aaPanel
-4. **SSL não funciona**: Verificar certificados
+3. **Tunnel não conecta**: Verificar credenciais e DNS gerado pelo Tunnel
+4. **SSL**: Gerenciado pelo Cloudflare; revisar políticas e domínio
 
 ### Logs Importantes
 ```bash
@@ -282,8 +267,8 @@ Após a configuração completa:
 
 Para atualizar os serviços:
 ```bash
-docker-compose pull
-docker-compose up -d
+docker compose pull
+docker compose up -d
 ```
 
 ---
