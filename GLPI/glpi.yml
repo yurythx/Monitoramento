@@ -24,7 +24,7 @@ services:
     container_name: glpi
     restart: always
     ports:
-      - "0.0.0.0:18080:80" # Acesso ao GLPI (LAN/host)
+      - "0.0.0.0:18080:80" # Acesso ao GLPI (reverse proxy)
     depends_on:
       - glpi-db
     environment:

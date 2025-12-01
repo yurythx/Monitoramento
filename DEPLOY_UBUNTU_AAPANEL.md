@@ -1,7 +1,7 @@
-# Deploy Stack Monitoramento - Ubuntu 24.04 (Cloudflare Tunnel)
+# Deploy Stack Monitoramento - Ubuntu 24.04 + aaPanel (Nginx/SSL)
 
 ## Visão Geral
-Esta documentação detalha o processo de implantação da Stack de Monitoramento (Zabbix, GLPI, Grafana) em Ubuntu 24.04 com Cloudflare Tunnel.
+Esta documentação detalha o processo de implantação da Stack de Monitoramento (Zabbix, GLPI, Grafana) em Ubuntu 24.04 utilizando aaPanel (Nginx + SSL) como reverse proxy.
 
 ## Serviços Incluídos
 - **Zabbix Server**: Monitoramento de infraestrutura
@@ -33,8 +33,10 @@ sudo apt install docker-compose-plugin
 
 ### Configurações do Ubuntu
 ```bash
-# Configurar firewall (Tunnel não requer portas públicas)
+# Configurar firewall (expor apenas HTTP/HTTPS)
 sudo ufw allow 22/tcp      # SSH
+sudo ufw allow 80/tcp      # HTTP
+sudo ufw allow 443/tcp     # HTTPS
 sudo ufw --force enable
 
 # Criar diretórios para volumes
@@ -43,22 +45,31 @@ sudo mkdir -p /mnt/config
 sudo chown -R 1000:1000 /mnt/config
 ```
 
-## Exposição com Cloudflare Tunnel
+## Configuração do aaPanel (Nginx)
 
-### Ingress de exemplo
-```yaml
-tunnel: <SEU_TUNNEL_ID_OU_NOME>
-credentials-file: /etc/cloudflared/<SEU_TUNNEL_ID>.json
-ingress:
-  - hostname: glpi.seudominio.com
-    service: http://127.0.0.1:18080
-  - hostname: zabbix.seudominio.com
-    service: http://127.0.0.1:18081
-  - hostname: grafana.seudominio.com
-    service: http://127.0.0.1:13000
-  - hostname: portainer.seudominio.com
-    service: http://127.0.0.1:9000
-  - service: http_status:404
+### Domínios e Proxy Reverso
+- No aaPanel, crie sites para os domínios:
+  - `glpi.seudominio.com` → proxy para `http://127.0.0.1:18080`
+  - `zabbix.seudominio.com` → proxy para `http://127.0.0.1:18081`
+  - `grafana.seudominio.com` → proxy para `http://127.0.0.1:13000`
+
+### SSL
+- Em cada site, habilite SSL (Let's Encrypt) e force HTTPS.
+
+### Exemplo de bloco Nginx
+```nginx
+server {
+  listen 443 ssl;
+  server_name glpi.seudominio.com;
+
+  location / {
+    proxy_pass http://127.0.0.1:18080;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+  }
+}
 ```
 
 ## Preparação dos Arquivos
@@ -158,17 +169,15 @@ docker compose logs -f
 
 ### 2. Testes de Conectividade
 ```bash
-# Testar Zabbix Web
-curl -I http://127.0.0.1:18081
+# Testes locais
+curl -I http://127.0.0.1:18081   # Zabbix Web
+curl -I http://127.0.0.1:18080   # GLPI
+curl -I http://127.0.0.1:13000   # Grafana
 
-# Testar GLPI
-curl -I http://127.0.0.1:18080
-
-# Testar Grafana
-curl -I http://127.0.0.1:13000
-
-# Testar Portainer (se instalado)
-curl -I http://127.0.0.1:9000
+# Testes via domínio (após proxy e SSL)
+curl -I https://glpi.seudominio.com
+curl -I https://zabbix.seudominio.com
+curl -I https://grafana.seudominio.com
 ```
 
 ## Configuração Inicial dos Serviços
@@ -224,8 +233,8 @@ O serviço de backup está configurado para:
 ### Medidas Implementadas
 - Senhas fortes em todos os serviços
 - Comunicação interna via rede Docker
-- SSL/TLS via Cloudflare (Tunnel)
-- Firewall configurado
+- SSL/TLS via aaPanel (Nginx)
+- Firewall configurado (80/443)
 - Volumes com permissões adequadas
 
 ### Recomendações Adicionais
@@ -239,8 +248,8 @@ O serviço de backup está configurado para:
 ### Problemas Comuns
 1. **Containers não iniciam**: Verificar logs e dependências
 2. **Erro de conexão DB**: Verificar credenciais e rede
-3. **Tunnel não conecta**: Verificar credenciais e DNS gerado pelo Tunnel
-4. **SSL**: Gerenciado pelo Cloudflare; revisar políticas e domínio
+3. **Proxy reverso**: Verificar upstream e cabeçalhos
+4. **SSL**: Verificar certificados e força de HTTPS
 
 ### Logs Importantes
 ```bash

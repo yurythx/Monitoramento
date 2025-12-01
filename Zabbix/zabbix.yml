@@ -47,7 +47,7 @@ services:
     container_name: zabbix-web
     restart: always
     ports:
-      - "0.0.0.0:18081:8080" # Acesso ao Zabbix Frontend (LAN/host)
+      - "0.0.0.0:18081:8080" # Acesso ao Zabbix Frontend (reverse proxy)
     depends_on:
       zabbix-server:
         condition: service_healthy
